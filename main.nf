@@ -1,69 +1,74 @@
 // Set PyProphet subsample ratio to 1/nr_samples
 // subsample_ratio = (1 / file("${params.dia_folder}/*.mzXML").size()).round(3)
 
-process irt_filter_pqp {
+process irt_linear_filter_pqp {
     scratch true
-    stageInMode "copy"
+    stageInMode 'copy'
     
-    publishDir "Results/SpectraST"
+    publishDir 'Results/openswath', mode:'link'
     
     input:
-    file spec_lib from file(params.spec_lib)
-    val bins from params.irt_filter_bins
+    file target_library from file(params.target_library)
 
     output:
-    file "irt*.pqp" into irtOut
+    file "linear_irt.pqp" into irtLinearFilterOut
     
     """
-    Rscript /home/phrt/workflows/NF-OpenSwath/bin/hrirt.R $spec_lib irt_${bins}.pqp $bins $params.irt_filter_peptides
+    easypqp reduce --in=$target_library \
+    --out=linear_irt.pqp \
+    --bins=$params.irt_linear_filter_bins \
+    --peptides=$params.irt_linear_filter_peptides
     """
 }
 
 
-process irt_filter_nonlinear_pqp {
+process irt_nonlinear_filter_pqp {
     scratch true
-    stageInMode "copy"
+    stageInMode 'copy'
     
-    publishDir "Results/SpectraST"
+    publishDir 'Results/openswath', mode:'link'
     
     input:
-    file spec_lib from file(params.spec_lib)
-    val bins from params.irt_filter_nonlinear_bins
+    file target_library from file(params.target_library)
 
     output:
-    file "irt*.pqp" into irtNonlinearOut
+    file "nonlinear_irt.pqp" into irtNonlinearFilterOut
     
     """
-    Rscript /home/phrt/workflows/NF-OpenSwath/bin/hrirt.R $spec_lib irt_${bins}.pqp $bins $params.irt_filter_peptides
+    easypqp reduce --in=$target_library \
+    --out=nonlinear_irt.pqp \
+    --bins=$params.irt_nonlinear_filter_bins \
+    --peptides=$params.irt_nonlinear_filter_peptides
     """
 }
 
 
 process openswath {
-    scratch "ram-disk"
-    stageInMode "copy"
-    cpus params.os_threads
+    scratch 'ram-disk'
+    stageInMode 'copy'
+    cpus params.openswath_threads
     
-    publishDir "Results/OSW"
+    publishDir 'Results/openswath', mode:'link'
 
     input:
-    file spec_lib from file(params.spec_lib)
+    file library from file(params.library)
     file mzxml from file("${params.dia_folder}/*.mzXML")
-    file swath_windows from file("${params.swath_windows}")
-    file irt_lib from irtOut
-    file irt_nonlinear_lib from irtNonlinearOut
+    file swath_windows from file("${params.openswath_swath_windows}")
+    file irt_linear from irtLinearFilterOut
+    file irt_nonlinear from irtNonlinearFilterOut
 
     output:
     file "*.osw" into openswathOut
     
     """
     OpenSwathWorkflow -in $mzxml \
-    -tr $spec_lib \
-    -tr_irt_nonlinear $irt_nonlinear_lib \
+    -tr $library \
+    -tr_irt $irt_linear \
+    -tr_irt_nonlinear $irt_nonlinear \
     -out_osw `basename $mzxml .mzXML`.osw \
-    -threads $params.os_threads \
+    -threads $params.openswath_threads \
     -swath_windows_file $swath_windows \
-    -min_upper_edge_dist 0 \
+    -min_upper_edge_dist 1 \
     -mz_extraction_window 30 \
     -mz_extraction_window_unit ppm \
     -mz_extraction_window_ms1 20 \
@@ -75,7 +80,9 @@ process openswath {
     -rt_extraction_window 600 \
     -RTNormalization:estimateBestPeptides \
     -RTNormalization:alignmentMethod lowess \
+    -RTNormalization:lowess:span 0.05 \
     -RTNormalization:outlierMethod none \
+    -RTNormalization:MinBinsFilled 5 \
     -Scoring:stop_report_after_feature 5 \
     -Scoring:TransitionGroupPicker:compute_peak_quality false \
     -Scoring:Scores:use_ms1_mi \
@@ -92,18 +99,18 @@ openswathOut.into{ openswathOut1; openswathOut2 }
 
 process pyprophet_subsample {
     scratch true
-    stageInMode "copy"
+    stageInMode 'copy'
     
-    publishDir "Results/PyProphet/RunSpecific"
+    publishDir 'Results/PyProphet/RunSpecific', mode:'link'
     
     input:
     file osw from openswathOut1
 
     output:
-    file "*.osws" into pypSubsampleOut
+    file "*.osws" into pyprophetSubsampleOut
 
     """
-    pyprophet subsample --subsample_ratio=$params.subsample_ratio \
+    pyprophet subsample --subsample_ratio=$params.pyprophet_subsample_subsample_ratio \
     --in=$osw \
     --out=${osw}s
     """
@@ -112,83 +119,73 @@ process pyprophet_subsample {
 
 process pyprophet_merge {
     scratch true
-    stageInMode "copy"
+    stageInMode 'copy'
     
-    publishDir "Results/PyProphet/RunSpecific"
+    publishDir 'Results/PyProphet/RunSpecific', mode:'link'
     
     input:
-    file spec_lib from file(params.spec_lib)
-    file osws from pypSubsampleOut.collect()
+    file library from file(params.library)
+    file osws from pyprophetSubsampleOut.collect()
 
     output:
-    file "subsampled.osw" into pypMergeOut
+    file "subsampled.osw" into pyprophetMergeOut
     
     """
-    pyprophet merge --template=$spec_lib \
-    --out=subsampled.osw $osws
+    pyprophet merge --template=$library \
+    --out=subsampled.osw \
+    $osws
     """
 }
 
-//TODO: Remove split if not used
-pypMergeOut.into{ pypMergeOut1; pypMergeOut2 }
 
-process pypropht_learn {
+process pyprophet_learn {
     scratch true
-    stageInMode "copy"
+    stageInMode 'copy'
     
-    cpus params.pyp_threads
+    cpus params.pyprophet_learn_threads
     
-    publishDir "Results/PyProphet/RunSpecific"
+    publishDir 'Results/PyProphet/RunSpecific', mode:'link'
     
     input:
-    file merged from pypMergeOut1
+    file merged_osws from pyprophetMergeOut
 
     output:
-    file "model.osw" into pypLearnOut
-    file "*.pdf"
+    file "model.osw" into pyprophetLearnOut
+    file "model_ms1ms2_report.pdf"
 
     """
-    pyprophet score --classifier=$params.pyp_classifier \
-    --in $merged \
+    pyprophet score --classifier=$params.pyprophet_classifier \
+    --in $merged_osws \
     --out model.osw \
     --level=ms1ms2 \
-    --ss_initial_fdr=0.15 \
-    --ss_iteration_fdr=0.05 \
-    --threads=$params.pyp_threads \
-    --ss_num_iter=$params.ss_num_iter \
-    --pi0_lambda $params.pi0_lambda 
+    --xeval_num_iter=3 \
+    --ss_initial_fdr=0.05 \
+    --ss_iteration_fdr=0.01 \
+    --threads=$params.pyprophet_learn_threads \
     """
 }
 
-    // pyprophet score --classifier=XGBoost \
-    // --in model.osw \
-    // --out model.osw \
-    // --level=ms1 \
-    // --ss_initial_fdr=0.1 \
-    // --ss_iteration_fdr=0.05 \
-    // --pi0_lambda 0.05 0.2 0.05 \
-    // --threads=$params.pyp_threads
 
 process pyprophet_apply {
     scratch true
-    stageInMode "copy"
+    stageInMode 'copy'
     
-    publishDir "Results/PyProphet/RunSpecific"
+    publishDir 'Results/PyProphet/RunSpecific', mode:'link'
     
     input:
     file osw from openswathOut2
     file model from pypLearnOut
 
     output:
-    file "*.oswa" into pyApplyOut
-    file "*.oswr" into pyApplyRedOut
+    file "*.oswa" into pyprophetApplyOut
+    file "*.oswr" into pyprophetApplyReducedOut
     file "*.pdf"
    
     """
     pyprophet score --in $osw\
     --out ${osw}a \
     --group_id=feature_id \
-    --classifier=$params.pyp_classifier \
+    --classifier=$params.pyprophet_classifier \
     --apply_weights=$model \
     --level=ms1ms2
 
@@ -199,30 +196,22 @@ process pyprophet_apply {
 }
 
 
-    // pyprophet score --in $osw \
-    // --out $osw \
-    // --group_id=feature_id \
-    // --classifier=XGBoost \
-    // --apply_weights=$model \
-    // --level=ms1
-
-
 process pyprophet_global {
     scratch true
-    stageInMode "copy"
+    stageInMode 'copy'
     
-    publishDir "Results/PyProphet/Global"
+    publishDir 'Results/PyProphet/Global', mode:'link'
 
     input:
-    file spec_lib from file(params.spec_lib)
-    file oswr from pyApplyRedOut.collect()
+    file library from file(params.library)
+    file oswr from pyprophetApplyReducedOut.collect()
 
     output:
-    file "model.oswr" into pypGlobalOut
+    file "model.oswr" into pyprophetGlobalOut
     file "*.pdf"
 
     """
-    pyprophet merge --template $spec_lib \
+    pyprophet merge --template $library \
     --out model.oswr $oswr
 
     pyprophet peptide --context=global \
@@ -236,32 +225,32 @@ process pyprophet_global {
 
 process pyprophet_backpropagate {
     scratch true
-    stageInMode "copy"
+    stageInMode 'copy'
     
-    publishDir "Results/PyProphet/Integrated"
+    publishDir 'Results/PyProphet/Integrated', mode:'link'
 
     input:
-    file osw from pyApplyOut
-    file model from pypGlobalOut
+    file oswa from pyprophetApplyOut
+    file model from pyprophetGlobalOut
 
     output:
-    file "*.oswab" into pypBackpropagateOut
+    file "*.osw" into pyprophetBackpropagateOut
 
     """
     pyprophet backpropagate --apply_scores $model \
-    --in $osw --out ${osw}b
+    --in $oswa --out ${oswa.basename}.osw
     """
 }
 
 
 process tric_prepare {
     scratch true
-    stageInMode "copy"
+    stageInMode 'copy'
 
-    publishDir "Results/Tric"
+    publishDir 'Results/Tric', mode:'link'
 
     input:
-    file osw from pypBackpropagateOut
+    file osw from pyprophetBackpropagateOut
 
     output:
     file "*.tsv" into tricPrepareOut
@@ -269,19 +258,19 @@ process tric_prepare {
     """
     pyprophet export --in $osw \
     --format=legacy_merged \
-    --max_rs_peakgroup_qvalue=0.05 \
+    --max_rs_peakgroup_qvalue=0.2 \
     --ipf_max_peptidoform_pep=1.0 \
-    --max_global_peptide_qvalue=1.0 \
-    --max_global_protein_qvalue=1.0
+    --max_global_peptide_qvalue=0.01 \
+    --max_global_protein_qvalue=0.01
     """
 }
 
 
 process tric_feature_alignment {
     scratch true
-    stageInMode "copy"
+    stageInMode 'copy'
 
-    publishDir "Results/Tric"
+    publishDir 'Results/Tric', mode:'link'
 
     input:
     file tsvs from tricPrepareOut.collect()
