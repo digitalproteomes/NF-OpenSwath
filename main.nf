@@ -1,13 +1,57 @@
 // Set PyProphet subsample ratio to 1/nr_samples
 // subsample_ratio = (1 / file("${params.dia_folder}/*.mzXML").size()).round(3)
 
+process irt_filter_pqp {
+    scratch true
+    stageInMode "copy"
+    
+    publishDir "Results/SpectraST"
+    
+    input:
+    file spec_lib from file(params.spec_lib)
+    val bins from params.irt_filter_bins
+
+    output:
+    file "irt*.pqp" into irtOut
+    
+    """
+    Rscript /home/phrt/workflows/NF-OpenSwath/bin/hrirt.R $spec_lib irt_${bins}.pqp $bins $params.irt_filter_peptides
+    """
+}
+
+
+process irt_filter_nonlinear_pqp {
+    scratch true
+    stageInMode "copy"
+    
+    publishDir "Results/SpectraST"
+    
+    input:
+    file spec_lib from file(params.spec_lib)
+    val bins from params.irt_filter_nonlinear_bins
+
+    output:
+    file "irt*.pqp" into irtNonlinearOut
+    
+    """
+    Rscript /home/phrt/workflows/NF-OpenSwath/bin/hrirt.R $spec_lib irt_${bins}.pqp $bins $params.irt_filter_peptides
+    """
+}
+
+
 process openswath {
+    scratch "ram-disk"
+    stageInMode "copy"
+    cpus params.os_threads
+    
     publishDir "Results/OSW"
 
     input:
     file spec_lib from file(params.spec_lib)
     file mzxml from file("${params.dia_folder}/*.mzXML")
     file swath_windows from file("${params.swath_windows}")
+    file irt_lib from irtOut
+    file irt_nonlinear_lib from irtNonlinearOut
 
     output:
     file "*.osw" into openswathOut
@@ -15,6 +59,7 @@ process openswath {
     """
     OpenSwathWorkflow -in $mzxml \
     -tr $spec_lib \
+    -tr_irt_nonlinear $irt_nonlinear_lib \
     -out_osw `basename $mzxml .mzXML`.osw \
     -threads $params.os_threads \
     -swath_windows_file $swath_windows \
@@ -46,6 +91,9 @@ openswathOut.into{ openswathOut1; openswathOut2 }
 
 
 process pyprophet_subsample {
+    scratch true
+    stageInMode "copy"
+    
     publishDir "Results/PyProphet/RunSpecific"
     
     input:
@@ -63,6 +111,9 @@ process pyprophet_subsample {
 
 
 process pyprophet_merge {
+    scratch true
+    stageInMode "copy"
+    
     publishDir "Results/PyProphet/RunSpecific"
     
     input:
@@ -82,6 +133,11 @@ process pyprophet_merge {
 pypMergeOut.into{ pypMergeOut1; pypMergeOut2 }
 
 process pypropht_learn {
+    scratch true
+    stageInMode "copy"
+    
+    cpus params.pyp_threads
+    
     publishDir "Results/PyProphet/RunSpecific"
     
     input:
@@ -92,13 +148,15 @@ process pypropht_learn {
     file "*.pdf"
 
     """
-    pyprophet score --classifier=XGBoost \
+    pyprophet score --classifier=$params.pyp_classifier \
     --in $merged \
     --out model.osw \
     --level=ms1ms2 \
-    --ss_initial_fdr=0.05 \
-    --ss_iteration_fdr=0.01 \
-    --threads=$params.pyp_threads 
+    --ss_initial_fdr=0.15 \
+    --ss_iteration_fdr=0.05 \
+    --threads=$params.pyp_threads \
+    --ss_num_iter=$params.ss_num_iter \
+    --pi0_lambda $params.pi0_lambda 
     """
 }
 
@@ -112,6 +170,9 @@ process pypropht_learn {
     // --threads=$params.pyp_threads
 
 process pyprophet_apply {
+    scratch true
+    stageInMode "copy"
+    
     publishDir "Results/PyProphet/RunSpecific"
     
     input:
@@ -127,7 +188,7 @@ process pyprophet_apply {
     pyprophet score --in $osw\
     --out ${osw}a \
     --group_id=feature_id \
-    --classifier=XGBoost \
+    --classifier=$params.pyp_classifier \
     --apply_weights=$model \
     --level=ms1ms2
 
@@ -147,6 +208,9 @@ process pyprophet_apply {
 
 
 process pyprophet_global {
+    scratch true
+    stageInMode "copy"
+    
     publishDir "Results/PyProphet/Global"
 
     input:
@@ -171,6 +235,9 @@ process pyprophet_global {
 
 
 process pyprophet_backpropagate {
+    scratch true
+    stageInMode "copy"
+    
     publishDir "Results/PyProphet/Integrated"
 
     input:
@@ -188,6 +255,9 @@ process pyprophet_backpropagate {
 
 
 process tric_prepare {
+    scratch true
+    stageInMode "copy"
+
     publishDir "Results/Tric"
 
     input:
@@ -208,6 +278,9 @@ process tric_prepare {
 
 
 process tric_feature_alignment {
+    scratch true
+    stageInMode "copy"
+
     publishDir "Results/Tric"
 
     input:
