@@ -68,7 +68,7 @@ process openswath {
     -out_osw `basename $mzxml .mzXML`.osw \
     -threads $params.openswath_threads \
     -swath_windows_file $swath_windows \
-    -min_upper_edge_dist 1 \
+    -min_upper_edge_dist 0 \
     -mz_extraction_window 30 \
     -mz_extraction_window_unit ppm \
     -mz_extraction_window_ms1 20 \
@@ -82,6 +82,7 @@ process openswath {
     -RTNormalization:alignmentMethod lowess \
     -RTNormalization:lowess:span 0.05 \
     -RTNormalization:outlierMethod none \
+    -RTNormalization:estimateBestPeptides \
     -RTNormalization:MinBinsFilled 5 \
     -Scoring:stop_report_after_feature 5 \
     -Scoring:TransitionGroupPicker:compute_peak_quality false \
@@ -161,7 +162,8 @@ process pyprophet_learn {
     --xeval_num_iter=3 \
     --ss_initial_fdr=0.05 \
     --ss_iteration_fdr=0.01 \
-    --threads=$params.pyprophet_learn_threads \
+    --pi0_method=$params.pyprophet_learn_pi0_method \
+    --threads=$params.pyprophet_learn_threads
     """
 }
 
@@ -174,7 +176,7 @@ process pyprophet_apply {
     
     input:
     file osw from openswathOut2
-    file model from pypLearnOut
+    file model from pyprophetLearnOut
 
     output:
     file "*.oswa" into pyprophetApplyOut
@@ -238,7 +240,7 @@ process pyprophet_backpropagate {
 
     """
     pyprophet backpropagate --apply_scores $model \
-    --in $oswa --out ${oswa.basename}.osw
+    --in $oswa --out ${oswa.baseName}.osw
     """
 }
 
