@@ -68,7 +68,7 @@ process openswath {
     -out_osw `basename $mzxml .mzXML`.osw \
     -threads $params.openswath_threads \
     -swath_windows_file $swath_windows \
-    -min_upper_edge_dist 0 \
+    -min_upper_edge_dist $params.openswath_swath_min_upper_edge_dist \
     -mz_extraction_window 30 \
     -mz_extraction_window_unit ppm \
     -mz_extraction_window_ms1 20 \
