@@ -2,8 +2,8 @@
 // subsample_ratio = (1 / file("${params.dia_folder}/*.mzXML").size()).round(3)
 
 process irt_linear_filter_pqp {
-    scratch true
-    stageInMode 'copy'
+//    scratch true
+//    stageInMode 'copy'
     
     publishDir 'Results/openswath', mode:'link'
     
@@ -23,8 +23,8 @@ process irt_linear_filter_pqp {
 
 
 process irt_nonlinear_filter_pqp {
-    scratch true
-    stageInMode 'copy'
+//    scratch true
+//    stageInMode 'copy'
     
     publishDir 'Results/openswath', mode:'link'
     
@@ -44,8 +44,8 @@ process irt_nonlinear_filter_pqp {
 
 
 process openswath {
-    scratch 'ram-disk'
-    stageInMode 'copy'
+//    scratch 'ram-disk'
+//    stageInMode 'copy'
     cpus params.openswath_threads
     
     publishDir 'Results/openswath', mode:'link'
@@ -65,7 +65,7 @@ process openswath {
     -tr $library \
     -tr_irt $irt_linear \
     -tr_irt_nonlinear $irt_nonlinear \
-    -out_osw `basename $mzxml .mzXML`.osw \
+    -out_osw ${mzxml.baseName}.osw \
     -threads $params.openswath_threads \
     -swath_windows_file $swath_windows \
     -min_upper_edge_dist $params.openswath_swath_min_upper_edge_dist \
@@ -80,10 +80,7 @@ process openswath {
     -rt_extraction_window 600 \
     -RTNormalization:estimateBestPeptides \
     -RTNormalization:alignmentMethod lowess \
-    -RTNormalization:lowess:span 0.05 \
     -RTNormalization:outlierMethod none \
-    -RTNormalization:estimateBestPeptides \
-    -RTNormalization:MinBinsFilled 5 \
     -Scoring:stop_report_after_feature 5 \
     -Scoring:TransitionGroupPicker:compute_peak_quality false \
     -Scoring:Scores:use_ms1_mi \
@@ -99,8 +96,8 @@ openswathOut.into{ openswathOut1; openswathOut2 }
 
 
 process pyprophet_subsample {
-    scratch true
-    stageInMode 'copy'
+//    scratch true
+//    stageInMode 'copy'
     
     publishDir 'Results/PyProphet/RunSpecific', mode:'link'
     
@@ -119,8 +116,8 @@ process pyprophet_subsample {
 
 
 process pyprophet_merge {
-    scratch true
-    stageInMode 'copy'
+//    scratch true
+//    stageInMode 'copy'
     
     publishDir 'Results/PyProphet/RunSpecific', mode:'link'
     
@@ -140,8 +137,8 @@ process pyprophet_merge {
 
 
 process pyprophet_learn {
-    scratch true
-    stageInMode 'copy'
+//    scratch true
+//    stageInMode 'copy'
     
     cpus params.pyprophet_learn_threads
     
@@ -169,8 +166,8 @@ process pyprophet_learn {
 
 
 process pyprophet_apply {
-    scratch true
-    stageInMode 'copy'
+//    scratch true
+//    stageInMode 'copy'
     
     publishDir 'Results/PyProphet/RunSpecific', mode:'link'
     
@@ -199,8 +196,8 @@ process pyprophet_apply {
 
 
 process pyprophet_global {
-    scratch true
-    stageInMode 'copy'
+    //scratch true
+    //stageInMode 'copy'
     
     publishDir 'Results/PyProphet/Global', mode:'link'
 
@@ -226,8 +223,8 @@ process pyprophet_global {
 
 
 process pyprophet_backpropagate {
-    scratch true
-    stageInMode 'copy'
+//    scratch true
+//    stageInMode 'copy'
     
     publishDir 'Results/PyProphet/Integrated', mode:'link'
 
@@ -246,8 +243,8 @@ process pyprophet_backpropagate {
 
 
 process tric_prepare {
-    scratch true
-    stageInMode 'copy'
+//    scratch true
+//    stageInMode 'copy'
 
     publishDir 'Results/Tric', mode:'link'
 
@@ -269,8 +266,8 @@ process tric_prepare {
 
 
 process tric_feature_alignment {
-    scratch true
-    stageInMode 'copy'
+//    scratch true
+//    stageInMode 'copy'
 
     publishDir 'Results/Tric', mode:'link'
 
