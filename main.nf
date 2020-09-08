@@ -187,7 +187,8 @@ process pyprophet_apply {
     --group_id=feature_id \
     --classifier=$params.pyprophet_classifier \
     --apply_weights=$model \
-    --level=ms1ms2
+    --level=ms1ms2 \
+    $params.pyprophet_apply_additional
 
 
     pyprophet reduce --in ${osw}a \
