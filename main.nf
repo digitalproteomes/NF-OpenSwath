@@ -160,7 +160,8 @@ process pyprophet_learn {
     --ss_initial_fdr=0.05 \
     --ss_iteration_fdr=0.01 \
     --pi0_method=$params.pyprophet_learn_pi0_method \
-    --threads=$params.pyprophet_learn_threads
+    --threads=$params.pyprophet_learn_threads\
+    $params.pyprophet_learn_additional
     """
 }
 
