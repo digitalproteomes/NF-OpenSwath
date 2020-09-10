@@ -149,7 +149,15 @@ process pyprophet_learn {
 
     output:
     file "model.osw" into pyprophetLearnOut
-    file "model_ms1ms2_report.pdf"
+    file "*_report.pdf"
+    file "*_scored.tsv" optional true
+    file "*_summary_stat.csv" optional true
+    file "*_full_stat.csv" optional true
+    file "*_weights.csv" optional true
+    file "*_ms2_model.bin" optional true
+    file "*_ms1ms2_model.bin" optional true
+    file "*_ms2_model.bin" optional true
+    file "*_transition_model.bin" optional true
 
     """
     pyprophet score --classifier=$params.pyprophet_classifier \
