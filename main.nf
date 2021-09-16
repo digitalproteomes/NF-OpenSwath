@@ -87,7 +87,8 @@ process openswath {
     -Scoring:Scores:use_mi_score \
     -readOptions cache \
     -batchSize 1000 \
-    -ms1_isotopes 3
+    -ms1_isotopes 3 \
+    -sort_swath_maps
     """
 }
 
